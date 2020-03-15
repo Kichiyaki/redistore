@@ -7,7 +7,7 @@ A session store backend for [gorilla/sessions](http://www.gorillatoolkit.org/pkg
 
 ## Requirements
 
-Depends on the [Redigo](https://github.com/gomodule/redigo) Redis library.
+Depends on the [go-redis/redis](https://github.com/go-redis/redis) Redis library.
 
 ## Installation
 
@@ -20,7 +20,8 @@ Available on [godoc.org](http://www.godoc.org/gopkg.in/boj/redistore.v1).
 See http://www.gorillatoolkit.org/pkg/sessions for full documentation on underlying interface.
 
 ### Example
-``` go
+
+```go
 // Fetch new store.
 store, err := NewRediStore(10, "tcp", ":6379", "", []byte("secret-key"))
 if err != nil {
@@ -47,7 +48,4 @@ session.Options.MaxAge = -1
 if err = sessions.Save(req, rsp); err != nil {
 	t.Fatalf("Error saving session: %v", err)
 }
-
-// Change session storage configuration for MaxAge = 10 days.
-store.SetMaxAge(10 * 24 * 3600)
 ```
