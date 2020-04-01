@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-type redistore struct {
+type RediStore struct {
 	client     Client
 	codecs     []securecookie.Codec
 	options    *sessions.Options
@@ -27,16 +27,16 @@ type redistore struct {
 }
 
 // NewRedisStore returns a new RedisStore.
-// client from go-redis package
-func NewRedisStore(client Client, keyPrefix string, keyPairs ...[]byte) (Store, error) {
-	store := &redistore{
+// any client that implements a Client interface
+func NewRedisStore(client Client, keyPrefix string, keyPairs ...[]byte) (*RediStore, error) {
+	store := &RediStore{
 		client: client,
 		codecs: securecookie.CodecsFromPairs(keyPairs...),
 		options: &sessions.Options{
 			Path:   "/",
 			MaxAge: 4096,
 		},
-		serializer: GobSerializer{},
+		serializer: JSONSerializer{},
 		maxLength:  4096,
 		keyPrefix:  keyPrefix,
 	}
@@ -45,13 +45,13 @@ func NewRedisStore(client Client, keyPrefix string, keyPairs ...[]byte) (Store, 
 }
 
 // SetKeyPrefix set the prefix
-func (s *redistore) SetKeyPrefix(p string) Store {
+func (s *RediStore) SetKeyPrefix(p string) *RediStore {
 	s.keyPrefix = p
 	return s
 }
 
 // SetOptions set the session options
-func (s *redistore) SetOptions(opts *sessions.Options) Store {
+func (s *RediStore) SetOptions(opts *sessions.Options) *RediStore {
 	s.options = opts
 	return s
 }
@@ -62,48 +62,48 @@ func (s *redistore) SetOptions(opts *sessions.Options) Store {
 // The default for a new RediStore is 4096. Redis allows for max.
 // value sizes of up to 512MB (http://redis.io/topics/data-types)
 // Default: 4096,
-func (s *redistore) SetMaxLength(length int) Store {
+func (s *RediStore) SetMaxLength(length int) *RediStore {
 	s.maxLength = length
 	return s
 }
 
 // SetSerializer sets the serializer.
-func (s *redistore) SetSerializer(serializer SessionSerializer) Store {
+func (s *RediStore) SetSerializer(serializer SessionSerializer) *RediStore {
 	s.serializer = serializer
 	return s
 }
 
 // Client returns the Client.
-func (s *redistore) Client() Client {
+func (s *RediStore) Client() Client {
 	return s.client
 }
 
 // Client returns the *sessions.Options.
-func (s *redistore) Options() *sessions.Options {
+func (s *RediStore) Options() *sessions.Options {
 	return s.options
 }
 
 // Client returns the *sessions.Options.
-func (s *redistore) MaxLength() int {
+func (s *RediStore) MaxLength() int {
 	return s.maxLength
 }
 
 // Client returns the prefix.
-func (s *redistore) KeyPrefix() string {
+func (s *RediStore) KeyPrefix() string {
 	return s.keyPrefix
 }
 
 // Get returns a session for the given name after adding it to the registry.
 //
 // See gorilla/sessions FilesystemStore.Get().
-func (s *redistore) Get(r *http.Request, name string) (*sessions.Session, error) {
+func (s *RediStore) Get(r *http.Request, name string) (*sessions.Session, error) {
 	return sessions.GetRegistry(r).Get(s, name)
 }
 
 // New returns a session for the given name without adding it to the registry.
 //
 // See gorilla/sessions FilesystemStore.New().
-func (s *redistore) New(r *http.Request, name string) (*sessions.Session, error) {
+func (s *RediStore) New(r *http.Request, name string) (*sessions.Session, error) {
 	var (
 		err error
 		ok  bool
@@ -124,7 +124,7 @@ func (s *redistore) New(r *http.Request, name string) (*sessions.Session, error)
 }
 
 // Save adds a single session to the response.
-func (s *redistore) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
+func (s *RediStore) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
 	// Marked for deletion.
 	if session.Options.MaxAge <= 0 {
 		if err := s.client.Do("DEL", s.keyPrefix+session.ID).Err(); err != nil {
@@ -149,7 +149,7 @@ func (s *redistore) Save(r *http.Request, w http.ResponseWriter, session *sessio
 }
 
 // Delete removes the session from redis, and sets the cookie to expire.
-func (s *redistore) Delete(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
+func (s *RediStore) Delete(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
 	if err := s.client.Del(s.keyPrefix + session.ID).Err(); err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (s *redistore) Delete(r *http.Request, w http.ResponseWriter, session *sess
 }
 
 // Update updates the session in redis.
-func (s *redistore) Update(session *sessions.Session) error {
+func (s *RediStore) Update(session *sessions.Session) error {
 	if session.Options.MaxAge <= 0 {
 		if err := s.client.Do("DEL", s.keyPrefix+session.ID).Err(); err != nil {
 			return err
@@ -182,7 +182,7 @@ func (s *redistore) Update(session *sessions.Session) error {
 }
 
 // DeleteByID deletes sessions from redis by id.
-func (s *redistore) DeleteByID(ids ...string) error {
+func (s *RediStore) DeleteByID(ids ...string) error {
 	formattedIds := []string{}
 	for _, id := range ids {
 		if !strings.Contains(id, s.keyPrefix) {
@@ -195,7 +195,7 @@ func (s *redistore) DeleteByID(ids ...string) error {
 }
 
 // GetAll returns all sessions from redis.
-func (s *redistore) GetAll() ([]*sessions.Session, error) {
+func (s *RediStore) GetAll() ([]*sessions.Session, error) {
 	keys, _, err := s.client.Scan(0, s.keyPrefix+"*", 0).Result()
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (s *redistore) GetAll() ([]*sessions.Session, error) {
 }
 
 // ping does an internal ping against a server to check if it is alive.
-func (s *redistore) ping() (bool, error) {
+func (s *RediStore) ping() (bool, error) {
 	data, err := s.client.Ping().Result()
 	if err != nil {
 		return false, err
@@ -228,7 +228,7 @@ func (s *redistore) ping() (bool, error) {
 
 // load reads the session from redis.
 // returns true if there is a sessoin data in DB
-func (s *redistore) load(session *sessions.Session) (bool, error) {
+func (s *RediStore) load(session *sessions.Session) (bool, error) {
 	data, err := s.client.Get(s.keyPrefix + session.ID).Result()
 	if err != nil && err != redis.Nil {
 		return false, err
@@ -240,13 +240,13 @@ func (s *redistore) load(session *sessions.Session) (bool, error) {
 }
 
 // save stores the session in redis.
-func (s *redistore) save(session *sessions.Session) error {
+func (s *RediStore) save(session *sessions.Session) error {
 	b, err := s.serializer.Serialize(session)
 	if err != nil {
 		return err
 	}
 	if s.maxLength != 0 && len(b) > s.maxLength {
-		return errors.New("redistore: the value to store is too big")
+		return errors.New("redistore: the value to RediStore is too big")
 	}
 	age := session.Options.MaxAge
 	return s.client.Do("SETEX", s.keyPrefix+session.ID, age, b).Err()

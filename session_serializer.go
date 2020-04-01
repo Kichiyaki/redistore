@@ -1,8 +1,6 @@
 package redistore
 
 import (
-	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -45,24 +43,4 @@ func (s JSONSerializer) Deserialize(d []byte, ss *sessions.Session) error {
 		ss.Values[k] = v
 	}
 	return nil
-}
-
-// GobSerializer uses gob package to encode the session map
-type GobSerializer struct{}
-
-// Serialize using gob
-func (s GobSerializer) Serialize(ss *sessions.Session) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(ss.Values)
-	if err == nil {
-		return buf.Bytes(), nil
-	}
-	return nil, err
-}
-
-// Deserialize back to map[interface{}]interface{}
-func (s GobSerializer) Deserialize(d []byte, ss *sessions.Session) error {
-	dec := gob.NewDecoder(bytes.NewBuffer(d))
-	return dec.Decode(&ss.Values)
 }
