@@ -18,7 +18,7 @@ import (
 )
 
 type RediStore struct {
-	client     Client
+	client     redis.UniversalClient
 	codecs     []securecookie.Codec
 	options    *sessions.Options
 	serializer SessionSerializer
@@ -27,8 +27,7 @@ type RediStore struct {
 }
 
 // NewRedisStore returns a new RedisStore.
-// any client that implements a Client interface
-func NewRedisStore(client Client, keyPrefix string, keyPairs ...[]byte) (*RediStore, error) {
+func NewRedisStore(client redis.UniversalClient, keyPrefix string, keyPairs ...[]byte) (*RediStore, error) {
 	store := &RediStore{
 		client: client,
 		codecs: securecookie.CodecsFromPairs(keyPairs...),
@@ -74,7 +73,7 @@ func (s *RediStore) SetSerializer(serializer SessionSerializer) *RediStore {
 }
 
 // Client returns the Client.
-func (s *RediStore) Client() Client {
+func (s *RediStore) Client() redis.UniversalClient {
 	return s.client
 }
 
@@ -194,7 +193,7 @@ func (s *RediStore) DeleteByID(ids ...string) error {
 	return s.client.Del(formattedIds...).Err()
 }
 
-// GetAll returns all sessions from redis.
+// GetAll returns all sessions stored in redis.
 func (s *RediStore) GetAll() ([]*sessions.Session, error) {
 	keys, _, err := s.client.Scan(0, s.keyPrefix+"*", 0).Result()
 	if err != nil {
